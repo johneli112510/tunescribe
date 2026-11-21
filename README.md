@@ -10,7 +10,8 @@ Turn audio into sheet music in the browser. Upload a song or record from the mic
   - **Melody:** a built-in YIN pitch tracker for one note at a time (singing, flute, violin and so on). It's fast and works offline. It also takes over automatically if the AI model can't load.
 - **Sheet music:** grand staff (with an adjustable hand split), treble clef, bass clef or automatic. Key and tempo are detected automatically. You can change the time signature, rhythm grid, tempo (with tap tempo) and where beat 1 starts.
 - **Piano roll editor:** select, drag, resize, add (double-click) and delete notes. Arrow keys move notes, undo/redo is supported, and clicking a key previews its sound.
-- **Playback:** a synth piano and/or the original recording, at 0.5×–1.5× speed.
+- **Playback:** a real recorded concert grand piano (Salamander Grand Piano samples, with natural key release and light room reverb), a simple synth, and/or the original recording, at 0.5×–1.5× speed. The piano samples (about 3 MB) are fetched once by the Worker and then served from your R2 bucket (`samples/`).
+- **Tidy notes:** one click removes stray or ghost notes, lines notes up with the beat, and switches to an 8th-note grid for cleaner sheet music. Undo reverses it.
 - **Exports:** MusicXML (MuseScore, Sibelius, Finale, Dorico), MIDI (any DAW), and PDF through the browser's print dialog.
 - **Cloud library (Cloudflare R2):** the original audio and every transcription are saved on the server automatically, including each edit. You see the same library on every device and can play the original audio again later. A backup copy is also kept in the browser.
 - **Optional password:** set an `APP_PASSWORD` secret and the whole app asks for it.
@@ -33,6 +34,7 @@ Note detection still runs in the browser. The AI model needs more processing pow
 | POST | `/api/login` | Check the password (sent in the `X-App-Password` header) |
 | GET | `/api/transcriptions` | List saved transcriptions |
 | GET/PUT/DELETE | `/api/transcriptions/:id` | Read, save or delete one (DELETE also removes its audio) |
+| GET | `/api/samples/:file` | Grand-piano samples, cached in R2 (public) |
 | GET/PUT/DELETE | `/api/audio/:id` | Original audio file (max 95 MB, supports Range requests) |
 
 ## Project layout
@@ -92,7 +94,9 @@ If you only open `public/` with a plain static server, the app still works in "L
 - If the sheet music looks messy, fix the **tempo** first (try **Tap**), then **Beat 1 starts at**, then use a coarser **Rhythm grid**.
 - Lower the sensitivity if you see lots of tiny extra notes. Raise it if notes are missing.
 
-## Third-party libraries (loaded from CDN)
+## Third-party libraries and sounds
+
+- Piano: [Salamander Grand Piano](https://archive.org/details/SalamanderGrandPianoV3) by Alexander Holm (CC-BY 3.0), MP3s from the Tone.js mirror
 
 - [@spotify/basic-pitch](https://github.com/spotify/basic-pitch-ts) (Apache-2.0): from esm.sh and jsDelivr
 - [OpenSheetMusicDisplay](https://opensheetmusicdisplay.org) (BSD-3-Clause): from jsDelivr

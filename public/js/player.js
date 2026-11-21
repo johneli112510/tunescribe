@@ -1,4 +1,12 @@
-// Web Audio playback: a light piano-like synth for the notes, plus optional original audio.
+// Web Audio playback: a sampled concert grand (Salamander Grand Piano, CC-BY 3.0),
+// a fallback synth, and optional original audio.
+
+// One recording every 3 semitones from A0 to C8; other notes are pitch-shifted from the nearest one.
+const SAMPLE_NAMES = { 9: 'A', 0: 'C', 3: 'Ds', 6: 'Fs' };
+const SAMPLE_PITCHES = [];
+for (let p = 21; p <= 108; p += 3) SAMPLE_PITCHES.push(p);
+const sampleFile = (p) => `${SAMPLE_NAMES[p % 12]}${Math.floor(p / 12) - 1}.mp3`;
+const SAMPLE_SOURCES = ['/api/samples/', 'https://tonejs.github.io/audio/salamander/'];
 
 export class Player {
   constructor() {
@@ -6,6 +14,62 @@ export class Player {
     this.playing = false;
     this.voices = new Set();
     this.onEnd = null;
+    this.sound = 'piano';
+    this.samples = new Map();
+    this.pianoPromise = null;
+  }
+
+  // Loads all piano samples (≈3 MB, cached by the browser and by the server's R2 bucket).
+  loadPiano(onProgress = () => {}) {
+    if (this.pianoPromise) return this.pianoPromise;
+    const ctx = this.ensure();
+    let done = 0;
+    const loadOne = async (p) => {
+      const file = sampleFile(p);
+      for (const base of SAMPLE_SOURCES) {
+        try {
+          const res = await fetch(base + file);
+          if (!res.ok) continue;
+          const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+          this.samples.set(p, buf);
+          break;
+        } catch {}
+      }
+      onProgress(++done / SAMPLE_PITCHES.length);
+    };
+    this.pianoPromise = Promise.all(SAMPLE_PITCHES.map(loadOne)).then(() => {
+      if (this.samples.size < SAMPLE_PITCHES.length / 2) {
+        this.pianoPromise = null;
+        throw new Error('Piano samples unavailable');
+      }
+    });
+    return this.pianoPromise;
+  }
+
+  get pianoReady() {
+    return this.samples.size >= SAMPLE_PITCHES.length / 2;
+  }
+
+  pianoVoice(pitch, when, dur, vel = 90) {
+    const ctx = this.ctx;
+    let best = null;
+    for (const p of this.samples.keys()) if (best == null || Math.abs(p - pitch) < Math.abs(best - pitch)) best = p;
+    const src = ctx.createBufferSource();
+    src.buffer = this.samples.get(best);
+    src.playbackRate.value = 2 ** ((pitch - best) / 12);
+    const g = ctx.createGain();
+    const level = 0.12 + ((vel / 127) ** 1.6) * 0.75;
+    g.gain.setValueAtTime(level, when);
+    // key release: dampers come down over ~0.25 s
+    const end = when + Math.max(0.08, dur);
+    g.gain.setValueAtTime(level, end);
+    g.gain.setTargetAtTime(0, end, 0.12);
+    src.connect(g).connect(this.synthBus);
+    src.start(when);
+    src.stop(end + 1.2);
+    const v = { o1: src, o2: null, g };
+    this.voices.add(v);
+    src.onended = () => this.voices.delete(v);
   }
 
   ensure() {
@@ -16,13 +80,20 @@ export class Player {
       this.master.threshold.value = -14;
       this.master.connect(this.ctx.destination);
       this.synthBus = this.ctx.createGain();
+      // gentle room reverb so the piano sounds natural rather than dry
+      this.reverb = this.ctx.createConvolver();
+      this.reverb.buffer = this.makeImpulse(2.2);
+      const wet = this.ctx.createGain();
+      wet.gain.value = 0.18;
       this.synthBus.connect(this.master);
+      this.synthBus.connect(this.reverb).connect(wet).connect(this.master);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
     return this.ctx;
   }
 
   voice(pitch, when, dur, vel = 90) {
+    if (this.sound === 'piano' && this.pianoReady) return this.pianoVoice(pitch, when, dur, vel);
     const ctx = this.ctx;
     const f = 440 * 2 ** ((pitch - 69) / 12);
     const peak = (vel / 127) * 0.22;
@@ -55,6 +126,16 @@ export class Player {
     const v = { o1, o2, g };
     this.voices.add(v);
     o1.onended = () => this.voices.delete(v);
+  }
+
+  makeImpulse(seconds) {
+    const rate = this.ctx.sampleRate, len = Math.floor(rate * seconds);
+    const buf = this.ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    return buf;
   }
 
   preview(pitch, vel = 90) {
@@ -124,7 +205,7 @@ export class Player {
           v.g.gain.cancelScheduledValues(now);
           v.g.gain.setTargetAtTime(0, now, 0.02);
           v.o1.stop(now + 0.1);
-          v.o2.stop(now + 0.1);
+          v.o2?.stop(now + 0.1);
         } catch {}
       }
     }

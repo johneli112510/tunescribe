@@ -333,7 +333,7 @@ async function handleAudio(arrayBuffer, title, file = null) {
       instrument,
       notes,
       audio: original,
-      s: { ...state.s, ...tempo, ...key, keyAuto: true, layout: INSTRUMENTS[instrument].layout, beats: 4, beatType: 4 },
+      s: { ...state.s, ...tempo, ...key, keyAuto: true, layout: INSTRUMENTS[instrument].layout, beats: 4, beatType: 4, grid: 2 },
     });
     toast(`Found ${notes.length} notes · ${tempo.bpm} BPM · ${keyLabel(key.fifths, key.mode)}`);
     const blob = file || new Blob([arrayBuffer]);
@@ -363,6 +363,7 @@ function openTranscription(t, { save = true } = {}) {
   updateTime(0);
   scoreDirty = true;
   showView(state.view);
+  if ($('#sound').value === 'piano') player.loadPiano().catch(() => {});
   if (save) saveCurrent();
   else setSaveStatus(server.online ? '☁ Saved' : 'Saved in this browser', server.online ? 'ok' : '');
   window.scrollTo({ top: 0 });
@@ -553,18 +554,31 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
-function togglePlay() {
+async function togglePlay() {
   if (player.playing) {
     state.cursor = player.position();
     player.stop();
     setPlayIcon(false);
     return;
   }
-  const synth = $('#synth').checked;
+  const sound = $('#sound').value;
+  const synth = sound !== 'off';
   const audio = $('#origAudio').checked ? state.audio : null;
   if (!synth && !audio) {
-    toast('Turn on "Notes" or "Original audio" to hear something.');
+    toast('Choose a sound or tick "Original audio" to hear something.');
     return;
+  }
+  player.sound = sound;
+  if (sound === 'piano' && !player.pianoReady) {
+    const btn = $('#playBtn');
+    btn.disabled = true;
+    try {
+      await player.loadPiano((p) => ($('#time').textContent = `Loading piano ${Math.round(p * 100)}%`));
+    } catch {
+      toast('The piano sound could not be loaded, so the simple synth is playing instead.');
+    } finally {
+      btn.disabled = false;
+    }
   }
   player.play(state.notes, { from: state.cursor, speed: +$('#speed').value, synth, audio });
   setPlayIcon(true);
@@ -654,6 +668,33 @@ function demoNotes() {
   return notes.map((n) => ({ ...n, id: uid() })).sort((a, c) => a.start - c.start);
 }
 
+// ---------------------------------------------------------------- Tidy notes
+function tidyNotes() {
+  const { bpm, offset } = state.s;
+  const step = 60 / bpm / Math.min(state.s.grid, 2); // tidy to 8th notes at the finest
+  const minDur = Math.min(0.09, step * 0.45);
+  const before = state.notes.length;
+  const kept = state.notes.filter((n) => n.dur >= minDur && (n.vel ?? 90) >= 38);
+  for (const n of kept) {
+    const s0 = offset + Math.round((n.start - offset) / step) * step;
+    n.start = Math.max(0, +s0.toFixed(4));
+    n.dur = Math.max(step, Math.round(n.dur / step) * step);
+  }
+  // remove duplicates and stop overlapping repeats of the same pitch
+  kept.sort((a, b) => a.pitch - b.pitch || a.start - b.start);
+  const out = [];
+  for (const n of kept) {
+    const prev = out[out.length - 1];
+    if (prev && prev.pitch === n.pitch) {
+      if (Math.abs(prev.start - n.start) < 1e-6) { prev.dur = Math.max(prev.dur, n.dur); prev.vel = Math.max(prev.vel, n.vel); continue; }
+      if (prev.start + prev.dur > n.start) prev.dur = n.start - prev.start;
+    }
+    out.push(n);
+  }
+  out.sort((a, b) => a.start - b.start || a.pitch - b.pitch);
+  return { notes: out, removed: before - out.length };
+}
+
 // ---------------------------------------------------------------- Misc
 function debounce(fn, ms) {
   let t;
@@ -713,6 +754,18 @@ $('#demoBtn').addEventListener('click', () =>
 );
 
 $('#playBtn').addEventListener('click', togglePlay);
+$('#tidyBtn').addEventListener('click', () => {
+  pushUndo();
+  const { notes, removed } = tidyNotes();
+  state.notes = notes;
+  if (state.s.grid > 2) state.s.grid = 2;
+  changed();
+  toast(`Tidied: removed ${removed} stray note${removed === 1 ? '' : 's'} and lined everything up with the beat. Undo with ↶.`, 4500);
+});
+$('#sound').addEventListener('change', () => {
+  player.sound = $('#sound').value;
+  if (player.sound === 'piano') player.loadPiano().catch(() => {});
+});
 $('#stopBtn').addEventListener('click', () => { player.stop(); setPlayIcon(false); seek(0); });
 $('#speed').addEventListener('change', () => { if (player.playing) { state.cursor = player.position(); player.stop(); togglePlay(); } });
 $$('.view-tab').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));

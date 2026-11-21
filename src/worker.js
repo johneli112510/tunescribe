@@ -67,6 +67,27 @@ async function handleApi(request, env, url) {
     return json({ ok: true, passwordRequired: !!env.APP_PASSWORD, storage: !!env.BUCKET });
   }
   if (!env.BUCKET) return error(500, 'R2 bucket is not bound. Add the BUCKET binding in wrangler.jsonc.');
+
+  // Grand-piano samples (Salamander Grand Piano, CC-BY 3.0). Fetched once from the
+  // public Tone.js mirror, then served from your own R2 bucket. Public: no password needed.
+  if (resource === 'samples' && (method === 'GET' || method === 'HEAD')) {
+    if (!id || !/^(A|C|Ds|Fs)[0-8]\.mp3$/.test(id)) return error(400, 'Bad sample name');
+    const key = `samples/${id}`;
+    let obj = await env.BUCKET.get(key);
+    if (!obj) {
+      const upstream = await fetch(`https://tonejs.github.io/audio/salamander/${id}`);
+      if (!upstream.ok) return error(502, 'Sample source unavailable');
+      const data = await upstream.arrayBuffer();
+      await env.BUCKET.put(key, data, { httpMetadata: { contentType: 'audio/mpeg' } });
+      return new Response(method === 'HEAD' ? null : data, {
+        headers: { 'content-type': 'audio/mpeg', 'cache-control': 'public, max-age=31536000, immutable' },
+      });
+    }
+    return new Response(method === 'HEAD' ? null : obj.body, {
+      headers: { 'content-type': 'audio/mpeg', 'cache-control': 'public, max-age=31536000, immutable' },
+    });
+  }
+
   if (!authorized(request, env)) return error(401, 'Password required');
 
   if (resource === 'login' && method === 'POST') return json({ ok: true });
