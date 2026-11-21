@@ -1,0 +1,15 @@
+{
+  "name": "tunescribe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn audio into sheet music, MIDI and MusicXML in the browser.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node test/music.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

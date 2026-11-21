@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tunescribe — turn audio into sheet music</title>
+  <meta name="description" content="Upload a song or record yourself and get sheet music, a piano roll and MIDI in seconds. Runs in your browser." />
+  <meta name="theme-color" content="#5b4bdb" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1/build/opensheetmusicdisplay.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./">
+      <img src="icon.svg" alt="" width="28" height="28" />
+      <span>Tunescribe</span>
+    </a>
+    <nav>
+      <a href="#how" class="hide-sm">How it works</a>
+      <a href="#faq" class="hide-sm">FAQ</a>
+      <span id="serverBadge" class="badge small">Connecting…</span>
+      <button id="libBtn" class="btn ghost small">My library</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============================ HOME ============================ -->
+    <section id="home">
+      <div class="hero">
+        <p class="eyebrow">Audio → sheet music, in your browser</p>
+        <h1>Turn any recording into <span class="grad">sheet music</span></h1>
+        <p class="lede">Upload a song or play into your microphone. Get notation, a piano roll you can edit, and MIDI or MusicXML for MuseScore, Sibelius or your DAW.</p>
+
+        <div class="upload-card">
+          <div class="src-tabs" role="tablist">
+            <button class="src-tab" role="tab" aria-selected="true" data-pane="upload">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M5 20h14v-2H5zm7-16-5 5h3v6h4V9h3z"/></svg> Upload audio
+            </button>
+            <button class="src-tab" role="tab" aria-selected="false" data-pane="record">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3m5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11z"/></svg> Record
+            </button>
+            <button class="src-tab" role="tab" aria-selected="false" data-pane="demo">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg> Try a demo
+            </button>
+          </div>
+
+          <div class="src-pane" data-pane="upload">
+            <label id="drop" class="drop">
+              <input id="file" type="file" accept="audio/*,video/mp4,video/webm,video/quicktime,.mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.webm,.mp4,.mov" hidden />
+              <div class="drop-icon">♪</div>
+              <strong>Drop an audio file here, or click to browse</strong>
+              <span class="muted small">MP3, WAV, M4A, OGG, FLAC — or a video file with sound</span>
+            </label>
+          </div>
+
+          <div class="src-pane" data-pane="record" hidden>
+            <div class="record">
+              <button id="recBtn" class="rec-btn" aria-label="Record">
+                <span class="dot"></span>
+              </button>
+              <div>
+                <strong id="recLabel">Start recording</strong>
+                <div class="muted small">Sing, hum or play. Time: <span id="recTime">0:00</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="src-pane" data-pane="demo" hidden>
+            <div class="demo">
+              <p>Open a ready-made transcription of <em>Ode to Joy</em> to explore the editor, playback and exports.</p>
+              <button id="demoBtn" class="btn">Open demo</button>
+            </div>
+          </div>
+
+          <div class="options">
+            <label>Instrument
+              <select id="instrument"></select>
+            </label>
+            <label>Engine
+              <select id="engine">
+                <option value="auto">Best for instrument</option>
+                <option value="ai">AI — chords &amp; polyphony</option>
+                <option value="melody">Melody — single notes, offline</option>
+              </select>
+              <span id="engineHint" class="muted tiny"></span>
+            </label>
+            <label>Sensitivity
+              <input id="sensitivity" type="range" min="0" max="100" value="50" />
+              <span class="muted tiny">Fewer notes ← → more notes</span>
+            </label>
+          </div>
+
+          <div id="progress" class="progress" hidden>
+            <div class="bar"><div id="progressBar"></div></div>
+            <span id="progressText" class="small">Working…</span>
+          </div>
+          <p class="privacy tiny muted">🔒 Notes are found right in your browser. Your audio and transcriptions are then saved to your private cloud library.</p>
+        </div>
+      </div>
+
+      <section id="how" class="features">
+        <h2>How it works</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="num">1</div>
+            <h3>Bring your music</h3>
+            <p>Upload an MP3, WAV or M4A, or record straight from your microphone — singing, piano, guitar, anything.</p>
+          </article>
+          <article class="card">
+            <div class="num">2</div>
+            <h3>AI finds the notes</h3>
+            <p>An open-source neural network (Spotify's Basic Pitch) hears chords and melodies, then we detect the key and tempo.</p>
+          </article>
+          <article class="card">
+            <div class="num">3</div>
+            <h3>Edit, play and export</h3>
+            <p>Fix notes in the piano roll, hear it back at any speed, and download PDF, MIDI or MusicXML.</p>
+          </article>
+        </div>
+
+        <div class="outputs">
+          <div>
+            <h3>Sheet music</h3>
+            <p class="muted">Grand staff for piano, or treble/bass clef for single instruments. Key, time signature and tempo are detected and adjustable.</p>
+          </div>
+          <div>
+            <h3>Piano roll</h3>
+            <p class="muted">Drag notes to move them, drag the end to resize, double-click to add, Delete to remove. Hands are coloured by your split point.</p>
+          </div>
+          <div>
+            <h3>Exports</h3>
+            <p class="muted">MusicXML for MuseScore, Sibelius, Finale and Dorico. MIDI for any DAW. PDF via your browser's print dialog.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="faq">
+        <h2>Questions</h2>
+        <details><summary>Which engine should I pick?</summary><p>Use <b>AI</b> for piano, guitar and anything with chords. Use <b>Melody</b> for singing, whistling or a single wind or string instrument — it is fast and works without an internet connection.</p></details>
+        <details><summary>Why are some notes wrong?</summary><p>Busy mixes, drums, reverb and very fast passages make transcription harder. Try adjusting sensitivity, then clean up in the piano roll. Setting the right tempo and "beat 1 starts at" makes the sheet music much tidier.</p></details>
+        <details><summary>Where are my transcriptions saved?</summary><p>On the server, in Cloudflare R2 storage — the original audio and every edit are saved automatically, so <b>My library</b> shows the same list on your phone, tablet and computer. A backup copy is also kept in your browser in case you go offline.</p></details>
+        <details><summary>Can I paste a YouTube link?</summary><p>Not in this version — download the audio you have rights to and upload the file instead.</p></details>
+      </section>
+    </section>
+
+    <!-- ============================ EDITOR ============================ -->
+    <section id="editor" hidden>
+      <div class="toolbar">
+        <button id="backBtn" class="btn ghost small" aria-label="New transcription">← New</button>
+        <input id="title" class="title-input" aria-label="Title" />
+        <span id="noteCount" class="muted small hide-sm"></span>
+        <span id="saveStatus" class="save-status small"></span>
+        <div class="spacer"></div>
+        <div class="exports">
+          <button id="dlPdf" class="btn small ghost">PDF</button>
+          <button id="dlMidi" class="btn small ghost">MIDI</button>
+          <button id="dlXml" class="btn small">MusicXML</button>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button id="playBtn" class="play" aria-label="Play"></button>
+        <button id="stopBtn" class="btn ghost small" aria-label="Stop">■</button>
+        <span id="time" class="mono small">0:00 / 0:00</span>
+        <label class="small">Speed
+          <select id="speed">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+          </select>
+        </label>
+        <label class="check small"><input id="synth" type="checkbox" checked /> Notes</label>
+        <label class="check small" id="origLabel"><input id="origAudio" type="checkbox" /> Original audio</label>
+        <div class="spacer"></div>
+        <span class="small muted">Transpose</span>
+        <button class="btn ghost small" data-transpose="-1" aria-label="Transpose down">−</button>
+        <button class="btn ghost small" data-transpose="1" aria-label="Transpose up">+</button>
+        <button id="undoBtn" class="btn ghost small" aria-label="Undo">↶</button>
+        <button id="redoBtn" class="btn ghost small" aria-label="Redo">↷</button>
+      </div>
+
+      <details class="settings" open>
+        <summary>Score settings</summary>
+        <div class="settings-grid">
+          <label>Tempo (BPM)
+            <span class="row"><input id="bpm" type="number" min="30" max="300" step="1" />
+            <button id="tap" class="btn ghost small" type="button">Tap</button>
+            <button id="autoTempo" class="btn ghost small" type="button" title="Re-detect tempo">Auto</button></span>
+          </label>
+          <label>Beat 1 starts at (s)
+            <input id="offset" type="number" min="0" step="0.01" />
+          </label>
+          <label>Time signature
+            <select id="timesig">
+              <option>4/4</option><option>3/4</option><option>2/4</option><option>6/8</option><option>2/2</option><option>12/8</option>
+            </select>
+          </label>
+          <label>Rhythm grid
+            <select id="grid">
+              <option value="4">16th notes</option>
+              <option value="2">8th notes (simpler)</option>
+              <option value="1">Quarter notes (simplest)</option>
+            </select>
+          </label>
+          <label>Key
+            <select id="key"></select>
+            <span id="keyDetected" class="muted tiny"></span>
+          </label>
+          <label>Staff
+            <select id="layout">
+              <option value="grand">Grand staff (piano)</option>
+              <option value="treble">Treble clef</option>
+              <option value="bass">Bass clef</option>
+              <option value="auto">Auto</option>
+            </select>
+          </label>
+          <label id="splitWrap">Hand split at
+            <select id="split"></select>
+          </label>
+        </div>
+      </details>
+
+      <div class="view-tabs" role="tablist">
+        <button class="view-tab" role="tab" data-view="score" aria-selected="true">Sheet music</button>
+        <button class="view-tab" role="tab" data-view="roll" aria-selected="false">Piano roll</button>
+      </div>
+
+      <div id="scoreView" class="panel">
+        <div class="panel-bar">
+          <span class="muted small">Zoom</span>
+          <input id="zoomScore" type="range" min="0.5" max="1.6" step="0.05" value="1" />
+        </div>
+        <div id="score" class="score"><p class="muted pad">Drawing sheet music…</p></div>
+      </div>
+
+      <div id="rollView" class="panel" hidden>
+        <div class="panel-bar">
+          <span class="muted small">Zoom</span>
+          <input id="zoomRoll" type="range" min="20" max="300" value="90" />
+          <span class="muted tiny hide-sm">Click a note to select · drag to move · drag its end to resize · double-click to add · Delete to remove · ↑↓ transpose (Shift = octave) · click the ruler to set the play position · Space plays</span>
+        </div>
+        <div id="roll" class="roll"></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="library">
+    <div class="dialog-head">
+      <h2>My library</h2>
+      <button id="libClose" class="btn ghost small" aria-label="Close">✕</button>
+    </div>
+    <p id="libSource" class="muted small lib-source"></p>
+    <div id="libList"></div>
+  </dialog>
+
+  <dialog id="login">
+    <form id="loginForm" class="login">
+      <img src="icon.svg" alt="" width="44" height="44" />
+      <h2>Tunescribe</h2>
+      <p class="muted small">Enter the password to use this app.</p>
+      <input id="loginPw" type="password" autocomplete="current-password" placeholder="Password" required />
+      <p id="loginError" class="error small"></p>
+      <button class="btn" type="submit">Sign in</button>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <footer class="footer muted small">
+    Tunescribe · Transcription by <a href="https://github.com/spotify/basic-pitch" target="_blank" rel="noopener">Basic Pitch</a> · Notation by <a href="https://opensheetmusicdisplay.org" target="_blank" rel="noopener">OpenSheetMusicDisplay</a>
+  </footer>
+</body>
+</html>

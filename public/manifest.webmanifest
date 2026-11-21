@@ -1,0 +1,10 @@
+{
+  "name": "Tunescribe",
+  "short_name": "Tunescribe",
+  "description": "Turn audio into sheet music, MIDI and MusicXML.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5b4bdb",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
